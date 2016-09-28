@@ -10,6 +10,20 @@ import models
 class LinkListCreateHandler(ListCreateAPIHandler):
     model = models.LinkModel()
 
+    def get(self):
+        try:
+            keyword = self.get_argument("keyword","")
+            if keyword != "":
+                self.mg_query_params.update({
+                    "title":{"$regex":keyword}
+                })
+        except Exception, e:
+            result = utils.reset_response_data(0, str(e))
+            self.write(result)
+            self.finish()
+            return
+        ListCreateAPIHandler.get(self)
+
 class LinkRetrieveUpdateDestroyHandler(RetrieveUpdateDestroyAPIHandler):
     model = models.LinkModel()
 
