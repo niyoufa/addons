@@ -1,13 +1,23 @@
 #coding=utf-8
 
-import datetime
+import datetime,pdb
 
 from tornado.options import options
 from dxb.handler import TokenAPIHandler,APIHandler,ListCreateAPIHandler,\
-    RetrieveUpdateDestroyAPIHandler
+    RetrieveUpdateDestroyAPIHandler,ListAPIHandler
 import libs.utils as utils
 import libs.modellib as model
 import models
+
+def exception_handler(func):
+    def handler(self,*args,**kwargs):
+        try:
+            func(self,*args,**kwargs)
+        except Exception, e:
+            result = utils.init_response_data()
+            result = utils.reset_response_data(0, str(e))
+            self.finish(result)
+    return handler
 
 class LinkListCreateHandler(ListCreateAPIHandler):
     model = models.LinkModel()
@@ -58,8 +68,36 @@ class LinkCountHandler(APIHandler):
             return
         self.finish(result)
 
+class SubjectListHandler(ListAPIHandler):
+    model = models.SubjectModel()
+
+    @exception_handler
+    def get(self):
+        self.mg_sort_params.update({
+            "sub_count":-1,
+        })
+        ListAPIHandler.get(self)
+
+class SubjectCountHandler(APIHandler):
+    model = models.SubjectModel()
+
+    @exception_handler
+    def get(self):
+        result = utils.init_response_data()
+        cr = self.model.coll.aggregate([
+            {"$group":{"_id":"","count":{"$sum":1}}},
+        ])
+        objs = []
+        for obj in cr:
+            obj = utils.dump(obj)
+            objs.append(obj)
+        result["data"] = objs
+        self.finish(result)
+
 handlers = [
     (r"/api/link/list", LinkListCreateHandler),
     (r"/api/link", LinkRetrieveUpdateDestroyHandler),
     (r"/api/link/count", LinkCountHandler),
+    (r"/api/subject/list", SubjectListHandler),
+    (r"/api/subject/count", SubjectCountHandler),
 ]
