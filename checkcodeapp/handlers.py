@@ -15,6 +15,7 @@ class MobileCheckCode(APIHandler):
         checkcode_coll = self.model.get_coll()
         try:
             mobile = self.get_argument("mobile")
+            self.model.check_mobile(mobile)
             curr_time = datetime.datetime.now()
             if checkcode_coll.find({"mobile":mobile,"enable_flag":True}).count() > 0:
                 # 验证码请求限制 每小时限制5条
@@ -41,9 +42,13 @@ class MobileCheckCode(APIHandler):
                 "type":"mobile",
                 "code":random_code,
             })
-            res = wslib.send_msg(mobile,"尊敬的用户您好，您本次的验证码为%s,30分钟内有效"%random_code)
-            if res != "0" :
-                raise ValueError("错误代码：%s"%res)
+            # res = wslib.send_msg(mobile,"尊敬的用户您好，您本次的验证码为%s,30分钟内有效"%random_code)
+            # if res != "0" :
+            #     raise ValueError("错误代码：%s"%res)
+
+            # res = self.model.send_106sms(mobile, random_code)
+            # if res.get("message","") != "ok":
+            #     raise Exception('短信发送失败,请联系开发人员\n错误信息：%s'%res)
             result["data"]["code"] = random_code
         except Exception, e:
             result = utils.reset_response_data(0, str(e))
