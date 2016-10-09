@@ -15,7 +15,7 @@ class CheckCode(model.BaseModel,model.Singleton):
         url = 'http://apis.baidu.com/kingtto_media/106sms/106sms?mobile=%s&tag=2&content=【丁蜀镇】你的验证码是%s，有效时间30分钟，请不要告诉他人'%(mobile,code)
         req = urllib2.Request(url)
 
-        req.add_header("apikey", "31647c1f8f32c5d01956a725d38ef39e")
+        req.add_header("apikey", "")
         resp = urllib2.urlopen(req)
         content = resp.read()
         if (content):
