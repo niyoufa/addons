@@ -1,80 +1,81 @@
-#coding=utf-8
+# -*- coding: utf-8 -*-
+#
+# @author: Daemon Wang
+# Created on 2016-07-14
+#
+import json
 import pdb
-from tornado.options import options
-from dxb.handler import TokenAPIHandler,APIHandler,ListCreateAPIHandler,\
-    RetrieveUpdateDestroyAPIHandler
-import libs.utils as utils
-import libs.modellib as model
+import os
+import tornado.web
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+import time
+
+from dxb.handler import APIHandler,ListAPIHandler
+import dxb.libs.utils as utils
 import models
 
-class ImageListHandler(ListCreateAPIHandler):
-    model = models.ImageModel()
+options = utils.options
 
+class FileUploadHandler(APIHandler):
+    model = models.FileModel()
+
+    #上传文件接口
     def post(self):
         result = utils.init_response_data()
         try:
-            request_files = self.request.files
-            if request_files.has_key("files"):
-                files = request_files["files"]
-                data = self.model.upload_image(files,file_type=0)
-            else:
-                raise ValueError(u"没有上传文件")
-            for d in data:
-                self.model.create(**d)
+            file_type = self.get_argument("file_type",'normal')
+            file = self.request.files['file']
+            self.model.upload(file,file_type)
+        except StandardError,e:
+            result = utils.reset_response_data(0,str(e))
 
-        except Exception,e:
-            result = utils.reset_response_data(0, unicode(e))
-        result["data"] = data
         self.finish(result)
 
-class ImageHandler(RetrieveUpdateDestroyAPIHandler):
-    model = models.ImageModel()
+class FileDownloadHandler(APIHandler):
+    model = models.FileModel()
 
-    def put(self):
-        result = utils.init_response_data()
+    #文件下载
+    def get(self):
+        options = utils.options
         try:
-            banner_id = self.get_argument("banner_id", "")
-            use_type = self.get_argument("use_type", "banner")
-            banner = self.model.get_coll().find_one({"_id": utils.create_objectid(banner_id), "enable_flag": 1})
-            if banner is None:
-                raise ValueError(u'该图片不存在或已被删除')
+            file_query = {}
+            file_query['file_name'] = self.get_argument("file_name",'')
+            file_query['file_path'] = self.get_argument("file_path",'')
+            file_query['enable_flag'] = 1
 
-            files = self.request.files
-            if files.has_key("files"):
-                files = files["files"]
-                data = self.model.upload_image(files, use_type)
-            else:
-                raise ValueError(u"没有上传文件")
-            for d in data:
-                banner["file_name"] = d["file_name"]
-                banner["use_type"] = d["use_type"]
-                banner["add_time"] = d["add_time"]
-                banner["file_type"] = d["file_type"]
-                banner["logs"].append({
-                    "user_id": "",
-                    "action_date": utils.get_current_time(),
-                    "action": "修改文件",
-                    "note": "file_path|from|%s|to|%s" % (banner['file_path'], d['file_path'])
-                })
-                banner["file_path"] = d["file_path"]
-                self.model.get_coll().save(banner)
-        except StandardError, e:
-            result = utils.reset_response_data(0, unicode(e))
-        self.finish(result)
+            res = self.model.get_coll().find_one(file_query)
+            if res is None:
+                raise ValueError(u"文件不存在或已被删除")
 
-    def delete(self):
-        result = utils.init_response_data()
-        banner_model_obj = self.model.BannerModel()
-        try:
-            banner_id = self.get_argument("banner_id", "")
-            banner_model_obj.delete(banner_id)
+            self.model.download(file_query)
+            url = options.project_root_path + res['file_path']
 
-            result["data"] = "success"
-        except StandardError, e:
-            result = utils.reset_response_data(0, unicode(e))
-        self.finish(result)
+            filename = os.path.split(url)[1]
+            self.set_header ('Content-Type', 'application/octet-stream')
+            self.set_header ('Content-Disposition', 'attachment; filename='+filename)
+            with open(url, 'rb') as f:
+                while True:
+                    data = f.read(1024)
+                    if not data:
+                        break
+                    self.write(data)
+            self.finish()
+        except StandardError,e:
+            self.write("<html><head><meta charse='UTF-8'></head>")
+            self.write(str(e))
+            self.write("</html>")
+
+class FileListHandler(ListAPIHandler):
+    model = models.FileModel()
+
+class FileDownloadListHandler(ListAPIHandler):
+    model = models.FileDownloadModel()
 
 handlers = [
-    (r"/api/image/list",ImageListHandler),
-    (r"/api/image",ImageHandler),
-]
+            (r'/api/file/upload',FileUploadHandler),
+            (r'/api/file/download', FileDownloadHandler),
+            (r'/api/file/list', FileListHandler),
+            (r'/api/download/list', FileDownloadListHandler),
+        ]

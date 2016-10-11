@@ -11,8 +11,6 @@ from xlutils.copy import copy
 import datetime
 import pdb
 
-import ods.settings as settings
-import ods.utils as utils
 import datetime
 datetime.timedelta(days=1)
 class Xlsx_Reporter(object):
